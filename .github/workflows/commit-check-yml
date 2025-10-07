@@ -8,14 +8,9 @@ jobs:
   commit-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Validate commit messages
-        run: |
-          regex='(ET|MST|MR)-[0-9]+'
-          for commit in $(git log --format='%s' ${{ github.event.before }}..${{ github.sha }}); do
-            if ! echo "$commit" | grep -Eq "$regex"; then
-              echo "Commit message '$commit' does not contain a Jira ID! Jira ID is must in the commit message."
-              echo "<Jira ID>: <Commit message>"
-              exit 1
-            fi
-          done
+      - name: Check for JIRA ID in commit messages
+        uses: souro1212/Check-JIRA-in-PR@v3 # An example action for JIRA validation
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
