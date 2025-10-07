@@ -1,0 +1,45 @@
+name: Build + Jira Update on Merge
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-jira:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Jira Issue Keys
+        id: jira_keys
+        run: |
+          regex='(ET|MR|MST)-[0-9]+'
+          keys=$(git log -1 --pretty=%B | grep -oE "$regex" | uniq | tr '\n' ',' | sed 's/,$//')
+          echo "keys=$keys" >> $GITHUB_OUTPUT
+
+      - name: Comment on Jira Issues
+        if: ${{ steps.jira_keys.outputs.keys != '' }}
+        run: |
+          for issue in $(echo "${{ steps.jira_keys.outputs.keys }}" | tr ',' ' '); do
+            echo "🔗 Updating Jira issue $issue"
+            curl -s -X POST \
+              -H "Authorization: Basic ${{ secrets.JIRA_AUTH }}" \
+              -H "Content-Type: application/json" \
+              --data "{\"body\": \"PR merged in GitHub: $GITHUB_REPOSITORY/commit/${GITHUB_SHA}\"}" \
+              ${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/$issue/comment
+          done
+
+      - name: Transition Jira Issues
+        if: ${{ steps.jira_keys.outputs.keys != '' }}
+        run: |
+          for issue in $(echo "${{ steps.jira_keys.outputs.keys }}" | tr ',' ' '); do
+            echo "Transitioning Jira issue $issue"
+            curl -s -X POST \
+              -H "Authorization: Basic ${{ secrets.JIRA_AUTH }}" \
+              -H "Content-Type: application/json" \
+              --data '{"transition":{"id":"2"}}' \
+              ${{ secrets.JIRA_BASE_URL }}/rest/api/2/issue/$issue/transitions
+          done
